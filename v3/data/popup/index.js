@@ -78,33 +78,14 @@ function sort(arr) {
 }
 
 function get(path) {
-  const cf = Promise.resolve({
-    match() {
-      return Promise.resolve();
-    },
-    add() {
-      return Promise.resolve();
-    }
-  });
-  return (typeof caches !== 'undefined' ? caches : {
-    open() {
-      return cf;
-    }
-  }).open('agents').catch(() => cf).then(cache => {
-    const link = 'https://cdn.jsdelivr.net/gh/ray-lothian/UserAgent-Switcher@latest/v3/data/popup/' + path;
-    // updating agents once per day
-    chrome.storage.local.get({
-      ['cache.' + path]: 0
-    }, prefs => {
-      const now = Date.now();
-      if (now - prefs['cache.' + path] > 1 * 24 * 60 * 60 * 1000) {
-        cache.add(link).then(() => chrome.storage.local.set({
-          ['cache.' + path]: now
-        }));
-      }
-    });
-    return cache.match(link).then(resp => resp || fetch(path));
-  });
+  // Fork change: always load the bundled local UA lists shipped in this
+  // extension. Upstream fetched them from the author's jsDelivr CDN
+  // (ray-lothian/UserAgent-Switcher@latest) and cached that copy in the
+  // 'agents' Cache Storage once per day, which shadowed any locally-added
+  // agents (they'd show once, then disappear after the cache warmed). Using
+  // the local file directly makes v3/data/popup/browsers/*.json the single
+  // source of truth. Returns a Response, same as before.
+  return fetch(path);
 }
 
 function update(ua) {
